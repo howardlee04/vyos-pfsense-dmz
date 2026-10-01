@@ -1,0 +1,355 @@
+firewall {
+    ipv4 {
+        name DC-DMZ {
+            rule 1 {
+                action accept
+                state established
+                state related
+            }
+            rule 10 {
+                action accept
+                destination {
+                    address 172.18.11.0/24
+                    port 80
+                }
+                protocol tcp
+                source {
+                    address 192.168.2.0/24
+                }
+            }
+            rule 20 {
+                action accept
+                description "Allow FTP"
+                destination {
+                    port 21,30000-30050
+                }
+                protocol tcp
+            }
+            rule 30 {
+                action accept
+                description "Allow ICMP"
+                protocol icmp
+            }
+        }
+        name DC-WAN {
+            rule 1 {
+                action accept
+                state established
+                state related
+            }
+            rule 10 {
+                action accept
+                description "Allow HTTP HTTPS"
+                destination {
+                    port 80,443
+                }
+                protocol tcp
+                source {
+                    address 192.168.2.10
+                }
+            }
+            rule 20 {
+                action accept
+                description "Allow DNS"
+                destination {
+                    port 53
+                }
+                protocol udp
+            }
+            rule 30 {
+                action accept
+                description "Allow ICMP"
+                protocol icmp
+            }
+        }
+        name DMZ-WAN {
+            default-action drop
+            default-log
+            rule 1 {
+                action accept
+                state established
+                state related
+            }
+            rule 10 {
+                action accept
+                protocol udp
+                source {
+                    address 172.18.11.10
+                }
+            }
+        }
+        name WAN-DMZ {
+            default-action drop
+            default-log
+            rule 1 {
+                action accept
+                state established
+                state related
+            }
+            rule 10 {
+                action accept
+                description "Allow HTTP to DMZ"
+                destination {
+                    address 172.18.11.10
+                    port 80
+                }
+                protocol tcp
+            }
+            rule 20 {
+                action accept
+                description "Allow FTP"
+                destination {
+                    address 172.18.11.10
+                    port 21,30000-30050
+                }
+                protocol tcp
+            }
+            rule 30 {
+                action accept
+                description "Allow TFTP"
+                destination {
+                    address 172.18.11.10
+                    port 69
+                }
+                protocol udp
+            }
+            rule 50 {
+                action accept
+                description "Allow ping"
+                protocol icmp
+            }
+        }
+    }
+    zone DC {
+        from DMZ {
+            firewall {
+                name DC-DMZ
+            }
+        }
+        from WAN {
+            firewall {
+                name DC-WAN
+            }
+        }
+        member {
+            interface eth2
+        }
+    }
+    zone DMZ {
+        from DC {
+            firewall {
+                name DC-DMZ
+            }
+        }
+        from WAN {
+            firewall {
+                name WAN-DMZ
+            }
+        }
+        member {
+            interface eth0
+        }
+    }
+    zone WAN {
+        from DC {
+            firewall {
+                name DC-WAN
+            }
+        }
+        from DMZ {
+            firewall {
+                name DMZ-WAN
+            }
+        }
+        member {
+            interface eth1
+        }
+    }
+}
+interfaces {
+    ethernet eth0 {
+        address 172.18.11.1/24
+        description "vyOS DMZ"
+        hw-id *****
+        offload {
+            gro
+            gso
+            sg
+            tso
+        }
+    }
+    ethernet eth1 {
+        address 44.104.11.4/16
+        description "455 Uplink"
+        hw-id *****
+        offload {
+            gro
+            gso
+            sg
+            tso
+        }
+    }
+    ethernet eth2 {
+        address 192.168.2.1/24
+        description "Private B"
+        hw-id *****
+        offload {
+            gro
+            gso
+            sg
+            tso
+        }
+    }
+    loopback lo {
+    }
+}
+nat {
+    destination {
+        rule 10 {
+            description "HTTP to DMZ"
+            destination {
+                port 80
+            }
+            inbound-interface {
+                name eth1
+            }
+            protocol tcp
+            translation {
+                address 172.18.11.10
+            }
+        }
+        rule 20 {
+            description "FTP to DMZ"
+            destination {
+                port 21
+            }
+            inbound-interface {
+                name eth1
+            }
+            protocol tcp
+            translation {
+                address 172.18.11.10
+            }
+        }
+        rule 25 {
+            description "FTP Passive to DMZ"
+            destination {
+                port 30000-30050
+            }
+            inbound-interface {
+                name eth1
+            }
+            protocol tcp
+            translation {
+                address 172.18.11.10
+            }
+        }
+        rule 30 {
+            description "TFTP to DMZ"
+            destination {
+                port 69
+            }
+            inbound-interface {
+                name eth1
+            }
+            protocol udp
+            translation {
+                address 172.18.11.10
+            }
+        }
+    }
+    source {
+        rule 1 {
+            description MAIN
+            outbound-interface {
+                name eth1
+            }
+            source {
+                address 192.168.2.0/24
+            }
+            translation {
+                address masquerade
+            }
+        }
+        rule 20 {
+            description "DMZ Internet"
+            outbound-interface {
+                name eth1
+            }
+            source {
+                address 172.18.11.0/24
+            }
+            translation {
+                address masquerade
+            }
+        }
+    }
+}
+protocols {
+    static {
+        route 0.0.0.0/0 {
+            next-hop 44.104.0.1 {
+            }
+        }
+    }
+}
+service {
+    ntp {
+        allow-client {
+            address 127.0.0.0/8
+            address 169.254.0.0/16
+            address 10.0.0.0/8
+            address 172.16.0.0/12
+            address 192.168.0.0/16
+            address ::1/128
+            address fe80::/10
+            address fc00::/7
+        }
+        server time1.vyos.net {
+        }
+        server time2.vyos.net {
+        }
+        server time3.vyos.net {
+        }
+    }
+    ssh {
+        port 22
+    }
+}
+system {
+    config-management {
+        commit-revisions 100
+    }
+    conntrack {
+        modules {
+            tftp
+        }
+    }
+    console {
+        device ttyS0 {
+            speed 115200
+        }
+    }
+    host-name vyos
+    login {
+        user vyos {
+            authentication {
+                encrypted-password ****************
+                plaintext-password ****************
+            }
+        }
+    }
+    option {
+        reboot-on-upgrade-failure 5
+    }
+    syslog {
+        local {
+            facility all {
+                level info
+            }
+            facility local7 {
+                level debug
+            }
+        }
+    }
+}

@@ -1,0 +1,140 @@
+pfSense Configuration
+
+=== SYSTEM ===
+Hostname: pfWall
+Domain: group11
+DNS Server: 44.2.1.44
+DNS Server: 44.2.1.45
+
+=== INTERFACES ===
+=== WAN (vtnet0) ===
+Description: WAN
+IPv4 Address: 44.104.11.5/16
+Gateway: WANGW
+
+=== PFSENSEDMZ (vtnet1) ===
+Description: pfSenseDMZ
+IPv4 Address: 192.168.1.1/24
+
+=== PRIVATEA (vtnet2) ===
+Description: PrivateA
+IPv4 Address: 192.168.3.1/24
+
+=== GATEWAY ===
+Interface: WAN
+Gateway: 44.104.0.1
+Name: WANGW
+Default IPv4 Gateway: WANGW
+
+=== VIRTUAL IP ===
+Mode: IP Alias
+Interface: WAN
+Address: 44.104.11.6/16
+Description: Static NAT for AlmaLinux
+
+=== NAT - 1:1 ===
+Interface: WAN
+External Address: 44.104.11.6
+Internal Address: 192.168.1.10
+Destination: Any
+Description: SNAR DMZ server
+
+=== NAT - OUTBOUND ===
+Mode: Hybrid
+
+Interface: WAN
+Source: PRIVATEA
+Destination: Any
+Translation: WAN Address
+
+Interface: WAN
+Source: 192.168.1.0/24
+Destination: Any
+Translation: WAN Address
+Description: Auto created rule - PFSENSEDMZ to WAN
+
+Interface: WAN
+Source: 192.168.3.0/24
+Destination: Any
+Translation: WAN Address
+Description: Auto created rule - PRIVATEA to WAN
+
+=== FIREWALL RULES - WAN ===
+Action: Pass
+Protocol: TCP
+Source: Any
+Destination: 192.168.1.10
+Destination Port: 21
+Description: Allow FTP to pfServer
+
+Action: Pass
+Protocol: TCP
+Source: Any
+Destination: 192.168.1.10
+Destination Port: 21
+Description: Allow FTP to pfServer
+
+Action: Pass
+Protocol: TCP
+Source: Any
+Destination: 192.168.1.10
+Destination Port: 80
+Description: Allow HTTP to pfServer
+
+Action: Pass
+Protocol: TCP
+Source: Any
+Destination: 192.168.1.10
+Destination Port: 30000-30050
+Description: FTP PASV Rules
+
+Action: Pass
+Protocol: TCP
+Source: Any
+Destination: WAN Address
+Destination Port: 443
+Description: WebConfigurator Anti-Lockout Rule
+
+Action: Block
+Protocol: TCP
+Source: Any
+Destination: Any
+Destination Port: Any
+Description: Deny all
+
+=== FIREWALL RULES - PFSENSEDMZ ===
+Action: Pass
+Protocol: IPv4
+Source: 192.168.1.0
+Destination: Any
+Destination Port: Any
+Description: Allow DMZ outbound
+
+Action: Pass
+Protocol: IPv4
+Source: PFSENSEDMZ Network
+Destination: Any
+Destination Port: Any
+Description: Default allow LAN to any rule
+
+Action: Block
+Protocol: IPv4
+Source: Any
+Destination: Any
+Destination Port: Any
+Description: Deny all
+
+=== FIREWALL RULES - PRIVATEA ===
+Action: Pass
+Protocol: IPv4
+Source: PRIVATEA Network
+Destination: Any
+Destination Port: Any
+Description: Allow private A outbound
+
+Action: Block
+Protocol: TCP
+Source: Any
+Destination: Any
+Destination Port: Any
+Description: Deny all

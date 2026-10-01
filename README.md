@@ -1,2 +1,0 @@
-# vyos-pfsense-dmz
-
